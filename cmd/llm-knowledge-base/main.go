@@ -135,6 +135,50 @@ func main() {
 		return nil, history, nil
 	})
 
+	// Add AGENT.md as a resource
+	server.AddResource(&mcp.Resource{
+		URI:         "file:///agents/AGENT.md",
+		Name:        "Agent Persona & Constraints",
+		Description: "Guidelines and rules for AI agents interacting with this repository",
+		MIMEType:    "text/markdown",
+	}, func(ctx context.Context, req *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
+		content, err := os.ReadFile("agents/AGENT.md")
+		if err != nil {
+			return nil, err
+		}
+		return &mcp.ReadResourceResult{
+			Contents: []*mcp.ResourceContents{
+				{
+					URI:      req.Params.URI,
+					MIMEType: "text/markdown",
+					Text:     string(content),
+				},
+			},
+		}, nil
+	})
+
+	// Add a prompt that initializes the agent with AGENT.md
+	server.AddPrompt(&mcp.Prompt{
+		Name:        "initialize_agent",
+		Description: "Initialize the agent with project-specific rules and persona",
+	}, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+		content, err := os.ReadFile("agents/AGENT.md")
+		if err != nil {
+			return nil, err
+		}
+		return &mcp.GetPromptResult{
+			Description: "Initialization prompt based on AGENT.md",
+			Messages: []*mcp.PromptMessage{
+				{
+					Role: "assistant",
+					Content: &mcp.TextContent{
+						Text: "I will follow these rules:\n\n" + string(content),
+					},
+				},
+			},
+		}, nil
+	})
+
 	// Run the server on stdio transport
 	if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
