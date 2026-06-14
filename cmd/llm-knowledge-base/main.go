@@ -48,11 +48,14 @@ func main() {
 	)
 
 	// Add a simple ping tool
+	type PingResult struct {
+		Message string `json:"message" mcp:"The response message"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "ping",
 		Description: "A simple tool to verify connectivity",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, string, error) {
-		return nil, "pong", nil
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, PingResult, error) {
+		return nil, PingResult{Message: "pong"}, nil
 	})
 
 	// add_note tool
@@ -60,46 +63,59 @@ func main() {
 		Title   string `json:"title" mcp:"The title of the note"`
 		Content string `json:"content" mcp:"The content of the note"`
 	}
+	type AddNoteResult struct {
+		Message string `json:"message" mcp:"Success message"`
+		ID      string `json:"id" mcp:"The ID of the created note"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "add_note",
 		Description: "Create a new note",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args AddNoteArgs) (*mcp.CallToolResult, string, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args AddNoteArgs) (*mcp.CallToolResult, AddNoteResult, error) {
 		note, err := notesMgr.AddNote(args.Title, args.Content)
 		if err != nil {
-			return nil, "", err
+			return nil, AddNoteResult{}, err
 		}
 
 		// Git commit
 		_ = git.Commit(notesDir, fmt.Sprintf("Added note: %s", note.Title))
 
-		return nil, fmt.Sprintf("Note created with ID: %s", note.ID), nil
+		return nil, AddNoteResult{
+			Message: fmt.Sprintf("Note created with ID: %s", note.ID),
+			ID:      note.ID,
+		}, nil
 	})
 
 	// list_notes tool
+	type ListNotesResult struct {
+		Notes []notes.Note `json:"notes" mcp:"The list of notes"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_notes",
 		Description: "List all notes",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, []notes.Note, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, ListNotesResult, error) {
 		list, err := notesMgr.ListNotes()
 		if err != nil {
-			return nil, nil, err
+			return nil, ListNotesResult{}, err
 		}
-		return nil, list, nil
+		return nil, ListNotesResult{Notes: list}, nil
 	})
 
 	// get_note tool
 	type GetNoteArgs struct {
 		ID string `json:"id" mcp:"The ID of the note to read"`
 	}
+	type GetNoteResult struct {
+		Note *notes.Note `json:"note" mcp:"The requested note"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_note",
 		Description: "Read a specific note by ID",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetNoteArgs) (*mcp.CallToolResult, *notes.Note, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args GetNoteArgs) (*mcp.CallToolResult, GetNoteResult, error) {
 		note, err := notesMgr.GetNote(args.ID)
 		if err != nil {
-			return nil, nil, err
+			return nil, GetNoteResult{}, err
 		}
-		return nil, note, nil
+		return nil, GetNoteResult{Note: note}, nil
 	})
 
 	// log_exercise tool
@@ -108,31 +124,39 @@ func main() {
 		Duration int    `json:"duration" mcp:"The duration in minutes"`
 		Notes    string `json:"notes" mcp:"Optional notes about the exercise"`
 	}
+	type LogExerciseResult struct {
+		Message string `json:"message" mcp:"Success message"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "log_exercise",
 		Description: "Log an exercise activity",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args LogExerciseArgs) (*mcp.CallToolResult, string, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args LogExerciseArgs) (*mcp.CallToolResult, LogExerciseResult, error) {
 		ex, err := exerciseMgr.LogExercise(args.Activity, args.Duration, args.Notes)
 		if err != nil {
-			return nil, "", err
+			return nil, LogExerciseResult{}, err
 		}
 
 		// Git commit
 		_ = git.Commit(exerciseDir, fmt.Sprintf("Logged exercise: %s", ex.Activity))
 
-		return nil, fmt.Sprintf("Logged %d minutes of %s", ex.Duration, ex.Activity), nil
+		return nil, LogExerciseResult{
+			Message: fmt.Sprintf("Logged %d minutes of %s", ex.Duration, ex.Activity),
+		}, nil
 	})
 
 	// get_exercise_history tool
+	type GetExerciseHistoryResult struct {
+		History []exercise.Exercise `json:"history" mcp:"The exercise history"`
+	}
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_exercise_history",
 		Description: "Get the exercise history",
-	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, []exercise.Exercise, error) {
+	}, func(ctx context.Context, req *mcp.CallToolRequest, args struct{}) (*mcp.CallToolResult, GetExerciseHistoryResult, error) {
 		history, err := exerciseMgr.GetHistory()
 		if err != nil {
-			return nil, nil, err
+			return nil, GetExerciseHistoryResult{}, err
 		}
-		return nil, history, nil
+		return nil, GetExerciseHistoryResult{History: history}, nil
 	})
 
 	// Add AGENT.md as a resource
